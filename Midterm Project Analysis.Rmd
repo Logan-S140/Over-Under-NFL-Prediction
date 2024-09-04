@@ -1,0 +1,233 @@
+---
+title: "Midterm project analysis"
+author: "Logan Schafer"
+date: "2023-10-27"
+output: html_document
+---
+```{r}
+library(tidyverse)
+library(dplyr)
+library(boot)
+library(dplyr)
+library(caret)
+library(leaps)
+library(olsrr)
+library(ggplot2)
+library(aod)
+library(caret)
+library(MASS)
+library(DescTools)
+library(glmtoolbox)
+```
+
+```{r}
+gamedata <- read.csv("GAME.csv")
+```
+
+```{r}
+teamdata <- read.csv("TEAM.csv")
+```
+
+
+```{r}
+##Removing random blank rows for team data 
+cleanedteam <- teamdata[rowSums(is.na(teamdata)) <= 15 ,  ]
+```
+
+```{r}
+##Creating subset of teams 
+cleanteam <- cleanedteam[cleanedteam$gid >=3456 & cleanedteam$gid <= 4790, ]
+```
+
+```{r}
+##Subetting columns needed for team data 
+cleanteamfin <- cleanteam[c(2,3,4,12,14,20,29,30,37,38,41,45)]
+```
+
+```{r}
+## creating home and away subsets of team data 
+visitor_teams <- cleanteamfin %>%
+  filter(row_number() %% 2 == 1)
+home_teams <- cleanteamfin %>%
+  filter(row_number() %% 2 == 0)
+```
+
+```{r}
+##Putting these two subsets togethor for full team data 
+merged_team <- left_join(home_teams, visitor_teams, by = "gid")
+```
+
+
+```{r} 
+##Removing random blank rows 
+cleanedgame <- gamedata[rowSums(is.na(gamedata)) <= 6 ,  ] 
+```
+
+
+
+```{r}
+##Creating subset of seasons 
+cleangame <- cleanedgame[cleanedgame$seas >= 2013 & cleanedgame$seas <= 2017, ]
+```
+
+```{r}
+##Putting game and team data together
+game_team_data <- left_join(cleangame, merged_team, by = "gid")
+```
+
+
+```{r}
+##Creating model dataset
+OU_data <- game_team_data[c(1:10,12,13,14,20, 21,53:68)]
+```
+
+```{r}
+##Removing n/a values for byes and week 1's from each season, went from 1335 to 1086
+OU_data1 <- OU_data[complete.cases(OU_data[, c("hpp", "vpp")]), ]
+```
+
+```{r}
+##Removing all playoff games, went from 1086 to 1051
+OU_data2 <- OU_data1[OU_data1$wk <= 17, ]
+```
+
+
+```{r}
+OU_data_open1 <- OU_data_open[complete.cases(OU_data_open[, c("temp", "humd", "wspd")]), ]
+```
+
+```{r}
+##Taking subset with all dome or closed roof games, 256 entries
+OU_data_close <- OU_data2[OU_data2$cond %in% c("Dome", "Closed Roof"), ]
+```
+
+```{r}
+##Taking subset with all outside games, 795 entries
+OU_data_open <- OU_data2[!(OU_data2$cond %in% c("Dome", "Closed Roof")), ]
+```
+
+```{r}
+## Full model for open game data and summary below
+full_model_open = glm( ouc_d ~  temp + humd + wspd  +  TotalSpread + cpp + cppa + ctop + tpu + cltd + cry + cpy + day  , data = OU_data_open1, family = "binomial")
+```
+
+```{r}
+summary(full_model_open)
+```
+
+```{r}
+## Choosen model for open game data and summary below 
+significant_model_open = glm( ouc_d ~ wspd  + cpp + cltd + tpu    , data = OU_data_open1, family = "binomial")
+```
+
+```{r}
+summary(significant_model_open)
+```
+
+
+```{r} 
+## Full model for closed game data and summary below
+full_model_close = glm( ouc_d ~ day + surf + TotalSpread + cpp + cppa + ctop + tpu + cltd + cry + cpy  , data = OU_data_close, family = "binomial")
+```
+
+
+```{r}
+summary(full_model_close)
+```
+
+
+
+
+```{r}
+## Stepwise model selection for open game model 
+step_open_model <- step(full_model_open, method = AIC)
+```
+
+```{r}
+## Stepwise model selection for closed game model 
+step_close_model <- step(full_model_close)
+```
+
+```{r}
+summary(step_open_model)
+```
+
+
+```{r}
+##Odd ratio for large model
+exp(coef(significant_model_open))
+```
+
+```{r} 
+##odd ratio for step model
+exp(coef(step_open_model))
+```
+
+
+```{r} 
+##Confusion matrix for large  model
+OU_data_open1$logit = predict(significant_model_open)
+OU_data_open1$prob = exp(OU_data_open1$logit) / (1 + exp(OU_data_open1$logit))
+OU_data_open1$pred = ifelse(OU_data_open1$prob > 0.50, 1, 0 )
+confusionMatrix(factor(OU_data_open1$pred), factor(OU_data_open1$ouc_d))
+```
+
+```{r}
+##Confusion matrix for step model
+OU_data_open1$logit2 = predict(step_open_model)
+OU_data_open1$prob2 = exp(OU_data_open1$logit2) / (1 + exp(OU_data_open1$logit2))
+OU_data_open1$pred2 = ifelse(OU_data_open1$prob2 > 0.50, 1, 0 )
+confusionMatrix(factor(OU_data_open1$pred2), factor(OU_data_open1$ouc_d))
+```
+
+```{r}
+## Response variable graph
+tbl <- with(OU_data_open1, table(ouc_d))
+
+bar <- barplot(tbl, beside = TRUE, legend = FALSE, main = " Distribution of Over/Under")
+bar_midpoints <- bar + 0.5  
+
+
+text(x = bar_midpoints, y = tbl, labels = tbl, pos = 3, col = "blue", cex = 0.8) 
+```
+
+```{r}
+##Boxplot for Wind speed predictor 
+boxplot(OU_data_open1$wspd ~ OU_data_open1$ouc_d,
+        col = "steelblue",
+        main = "Wind Speed by group ",
+        xlab = "Over/Under",
+        ylab = "Wind Speed",
+        )
+```
+
+```{r}
+## Boxplot for cpp predictor
+boxplot(OU_data_open1$cpp ~ OU_data_open1$ouc_d,
+        col = "Brown",
+        main = "Combined Previous Points Scored by group",
+        xlab = "Over/Under",
+        ylab = "Combined Previous Points Scored",
+        )
+```
+
+```{r}
+## Wald test for the three models
+wald.test(Sigma = vcov(full_model_open), b = coef(full_model_open), Terms = 1:16 )
+wald.test(Sigma = vcov(significant_model_open), b = coef(significant_model_open), Terms = 1:5 )
+wald.test(Sigma = vcov(step_open_model), b = coef(step_open_model), Terms = 1:2 )
+```
+
+```{r}
+## VIF for the large model
+VIF(significant_model_open)
+```
+
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
