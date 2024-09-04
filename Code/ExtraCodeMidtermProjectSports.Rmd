@@ -1,0 +1,112 @@
+---
+title: "Excess code miterm project sports"
+author: "Logan Schafer"
+date: "2023-10-23"
+output: html_document
+---
+## This code below are the trials to create a loop to get lagged values for previous week stats.
+
+```{r}
+## Creating subset for 2013
+subset2013 <- game_team_data[game_team_data$seas == 2013, ]
+```
+
+```{r}
+##Loop for matching home lagged values 
+  # Create an empty column 'h_previous_points'
+  subset2013$h_previous_points <- NA
+
+  # Loop through each row and populate 'h_previous_points'
+  for (i in 1:nrow(subset2013)) {
+    current_wk <- subset2013$wk[i]
+    t_wk <- current_wk - 1
+    
+    # Find the row with the matching 't_wk' and 'h_tname'
+    matching_row <- subset2013[subset2013$wk == t_wk & subset2013$h_tname == subset2013$h_tname[i], ]
+    
+    # Assign the value from 'h_pts' or 'v_pts' based on 'h_tname' and 'v_tname' matching
+    if (nrow(matching_row) > 0) {
+      if (subset2013$h_tname[i] == matching_row$h_tname[1]) {
+        subset2013$h_previous_points[i] <- matching_row$h_pts[1]
+      } else {
+        subset2013$h_previous_points[i] <- matching_row$v_pts[1]
+      }
+    }
+  }
+
+```
+
+```{r}
+##Loop for matching home values with vistor from previous week
+
+  # Loop through each row and populate 'h_previous_points'
+  for (i in 1:nrow(subset2013)) {
+    current_wk <- subset2013$wk[i]
+    t_wk <- current_wk - 1
+    
+    # Find the row with the matching 't_wk' and 'h_tname'
+    matching_row <- subset2013[subset2013$wk == t_wk & subset2013$v_tname == subset2013$h_tname[i], ]
+    
+    # Assign the value from 'h_pts' or 'v_pts' based on 'h_tname' and 'v_tname' matching
+    if (nrow(matching_row) > 0) {
+      if (subset2013$h_tname[i] == matching_row$v_tname[1]) {
+        subset2013$h_previous_points[i] <- matching_row$v_pts[1]
+      } else {
+        
+      }
+    }
+  }
+```
+
+
+```{r}
+##Loop for matching visitor lagged values
+  # Create an empty column 'h_previous_points'
+  subset2013$v_previous_points <- NA
+
+  # Loop through each row and populate 'h_previous_points'
+  for (i in 1:nrow(subset2013)) {
+    current_wk <- subset2013$wk[i]
+    t_wk <- current_wk - 1
+    
+    # Find the row with the matching 't_wk' and 'h_tname'
+    matching_row <- subset2013[subset2013$wk == t_wk & subset2013$v == subset2013$v_tname[i], ]
+    
+    # Assign the value from 'h_pts' or 'v_pts' based on 'h_tname' and 'v_tname' matching
+    if (nrow(matching_row) > 0) {
+      if (subset2013$v_tname[i] == matching_row$v_tname[1])  {
+        subset2013$v_previous_points[i] <- matching_row$v_pts[1]
+      } else {
+        subset2013$v_previous_points[i] <- matching_row$h_pts[1]
+      }
+    }
+  }
+```
+
+```{r}
+##Loop for matching visitor with home from previus week value
+
+  # Loop through each row and populate 'h_previous_points'
+  for (i in 1:nrow(subset2013)) {
+    current_wk <- subset2013$wk[i]
+    t_wk <- current_wk - 1
+    
+    # Find the row with the matching 't_wk' and 'h_tname'
+    matching_row <- subset2013[subset2013$wk == t_wk & subset2013$h_tname == subset2013$v_tname[i], ]
+    
+    # Assign the value from 'h_pts' or 'v_pts' based on 'h_tname' and 'v_tname' matching
+    if (nrow(matching_row) > 0) {
+      if (subset2013$v_tname[i] == matching_row$h_tname[1]) {
+        subset2013$v_previous_points[i] <- matching_row$h_pts[1]
+      } else {
+        
+      }
+    }
+  }
+
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
